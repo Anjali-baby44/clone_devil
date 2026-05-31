@@ -3,6 +3,7 @@ import re
 import random
 import aiofiles
 import aiohttp
+import colorsys
 from PIL import (Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps)
 from py_yt import VideosSearch
 from PritiMusic import app
@@ -47,6 +48,12 @@ def get_glowing_circle(image):
     glow.paste(circular_img, (offset, offset), circular_img)
     
     return glow, offset
+
+def draw_text_with_glow(draw, position, text, font, fill, glow_fill):
+    x, y = position
+    for dx, dy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
+        draw.text((x + dx, y + dy), text, font=font, fill=glow_fill)
+    draw.text((x, y), text, font=font, fill=fill)
 
 # Helper: Text Truncator
 def clear(text, max_length=25):
@@ -150,11 +157,62 @@ async def get_thumb(videoid, user_id, client):
     draw.text((1400, 100), f"OWNER: {owner_name}", fill="cyan", font=br)
     draw.text((1350, 880), f"Requested by: {user_name[:15]}", fill="white", font=f2)
 
-    # Up-Down Waveform
-    for i in range(45):
-        h = random.randint(50, 200)
-        y_pos = 750 - (h // 2)
-        draw.rounded_rectangle((700 + i*25, y_pos, 715 + i*25, y_pos + h), radius=5, fill=(219, 133, 166))
+    # --- NEON AUDIO WAVE (Red to Yellow, Thinner lines) ---
+    center_y = 750
+    num_bars = 75
+    bar_width = 3    # Thinner bars
+    spacing = 15
+    start_x = 650
+    
+    # Specific bar indexes for placing musical notes
+    top_note_indices = [10, 30, 50]
+    bottom_note_indices = [20, 40, 60]
+    notes = ['♪', '♫', '♬']
+    note_colors = [(255, 80, 80), (255, 255, 80), (255, 150, 0)] # Red & yellow variations
+    
+    for i in range(num_bars):
+        h = random.randint(40, 80) if i % 5 == 0 else random.randint(10, 45)
+        x1 = start_x + (i * spacing)
+        x2 = x1 + bar_width
+        if x2 > 1800: break
+            
+        # Gradient from Red (0.0) to Yellow (0.16)
+        hue = 0.0 + (i / num_bars) * 0.16
+        r, g, b = [int(c * 255) for c in colorsys.hsv_to_rgb(hue, 1.0, 1.0)]
+        
+        # Draw thinner, sharper glowing bars
+        draw.rounded_rectangle((x1 - 6, center_y - h - 6, x2 + 6, center_y + h + 6), radius=6, fill=(r, g, b, 15))
+        draw.rounded_rectangle((x1 - 3, center_y - h - 3, x2 + 3, center_y + h + 3), radius=4, fill=(r, g, b, 45))
+        draw.rounded_rectangle((x1 - 1, center_y - h - 1, x2 + 1, center_y + h + 1), radius=2, fill=(r, g, b, 120))
+        draw.rounded_rectangle((x1, center_y - h, x2, center_y + h), radius=1, fill=(255, 255, 255, 255))
+
+        # Add glowing musical notes on specific top positions
+        if i in top_note_indices:
+            nc = random.choice(note_colors)
+            draw_text_with_glow(draw, (x1 - 10, center_y - h - 50), random.choice(notes), f2, nc, (nc[0], nc[1], nc[2], 120))
+        
+        # Add glowing musical notes on specific bottom positions
+        if i in bottom_note_indices:
+            nc = random.choice(note_colors)
+            draw_text_with_glow(draw, (x1 - 10, center_y + h + 10), random.choice(notes), f2, nc, (nc[0], nc[1], nc[2], 120))
+
+    # --- BUTTON CONTROLS (Backward, Play/Pause, Forward) ---
+    btn_y = 880
+    
+    # 1. Backward Button (Left)
+    draw.ellipse((700, btn_y-20, 740, btn_y+20), outline="white", width=3)
+    draw.polygon([(725, btn_y-12), (725, btn_y+12), (710, btn_y)], fill="white")
+    draw.rectangle((705, btn_y-12, 708, btn_y+12), fill="white")
+    
+    # 2. Play/Pause Button icon (Center)
+    draw.ellipse((770, btn_y-30, 830, btn_y+30), outline="white", width=4)
+    draw.rectangle((790, btn_y-15, 800, btn_y+15), fill="white")
+    draw.rectangle((805, btn_y-15, 815, btn_y+15), fill="white")
+
+    # 3. Forward Button (Right)
+    draw.ellipse((860, btn_y-20, 900, btn_y+20), outline="white", width=3)
+    draw.polygon([(875, btn_y-12), (875, btn_y+12), (890, btn_y)], fill="white")
+    draw.rectangle((892, btn_y-12, 895, btn_y+12), fill="white")
 
     background.convert("RGB").save(filename)
     if os.path.exists(f"cache/temp_{videoid}.jpg"):
