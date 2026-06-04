@@ -1,9 +1,22 @@
+from pyrogram import enums
 from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from PritiMusic import app
 from PritiMusic.utils.database import is_on_off
 from config import LOGGER_ID
+
+# ====================================================
+# HELPER FUNCTION: To Fetch Group Owner
+# ====================================================
+async def get_owner(client, chat_id):
+    try:
+        async for member in client.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
+            if member.status == enums.ChatMemberStatus.OWNER:
+                return member.user.mention
+    except:
+        pass
+    return "Unknown"
 
 
 async def play_logs(message, streamtype):
@@ -13,11 +26,13 @@ async def play_logs(message, streamtype):
         except:
             query = "Link/File or Reply"
 
-        # Fetch Total Members
+        # Fetch Total Members & Owner
         try:
             members_count = await app.get_chat_members_count(message.chat.id)
         except:
             members_count = "Unknown"
+            
+        owner = await get_owner(app, message.chat.id)
 
         # Generate Link for Button
         chat_link = None
@@ -30,12 +45,13 @@ async def play_logs(message, streamtype):
                 pass
 
         logger_text = f"""
-<b>{app.mention} ᴘʟᴀʏ ʟᴏɢ</b>
+<blockquote><b>{app.mention} ᴘʟᴀʏ ʟᴏɢ</b>
 
-<b>• ʀᴇǫᴜᴇsᴛ ʙʏ :</b> {message.from_user.mention}
-<b>• ǫᴜᴇʀʏ :</b> {query}
-<b>• ᴄʜᴀᴛ :</b> {message.chat.title} [`{message.chat.id}`]
-<b>• ᴍᴇᴍʙᴇʀs :</b> {members_count}
+<b>• ʀᴇǫᴜᴇsᴛ ʙʏ : {message.from_user.mention}</b>
+<b>• ǫᴜᴇʀʏ : {query}</b>
+<b>• ᴄʜᴀᴛ : {message.chat.title} [<code>{message.chat.id}</code>]</b>
+<b>• ᴏᴡɴᴇʀ : {owner}</b>
+<b>• ᴍᴇᴍʙᴇʀs : {members_count}</b></blockquote>
 """
         # Create Button Markup
         reply_markup = None
@@ -96,6 +112,8 @@ async def clone_bot_logs(client, message, bot_mention, clone_logger_id, streamty
             members_count = await client.get_chat_members_count(message.chat.id)
         except:
             members_count = "Unknown"
+            
+        owner = await get_owner(client, message.chat.id)
 
         chat_link = None
         if message.chat.username:
@@ -107,12 +125,13 @@ async def clone_bot_logs(client, message, bot_mention, clone_logger_id, streamty
                 pass
 
         admin_log_text = f"""
-<b>🤖 ᴄʟᴏɴᴇ ʙᴏᴛ ʟᴏɢ : @{bot.username}</b>
+<blockquote><b>🤖 ᴄʟᴏɴᴇ ʙᴏᴛ ʟᴏɢ : @{bot.username}</b>
 
-<b>• ʀᴇǫᴜᴇsᴛ ʙʏ :</b> {message.from_user.mention}
-<b>• ǫᴜᴇʀʏ :</b> {query}
-<b>• ᴄʜᴀᴛ :</b> {message.chat.title} [`{message.chat.id}`]
-<b>• ᴍᴇᴍʙᴇʀs :</b> {members_count}
+<b>• ʀᴇǫᴜᴇsᴛ ʙʏ : {message.from_user.mention}</b>
+<b>• ǫᴜᴇʀʏ : {query}</b>
+<b>• ᴄʜᴀᴛ : {message.chat.title} [<code>{message.chat.id}</code>]</b>
+<b>• ᴏᴡɴᴇʀ : {owner}</b>
+<b>• ᴍᴇᴍʙᴇʀs : {members_count}</b></blockquote>
 """
         reply_markup = None
         if chat_link:
@@ -148,12 +167,14 @@ async def bot_removed_logs(client, message, is_clone=False):
         if message.from_user:
             kicked_by = message.from_user.mention
         else:
-            kicked_by = "Unknown User"
+            kicked_by = "<b>Unknown User</b>"
         
         try:
             members_count = await client.get_chat_members_count(message.chat.id)
         except:
             members_count = "Unknown"
+            
+        owner = await get_owner(client, message.chat.id)
 
         # Note: Bot nikal jane ke baad private group ka link nikalna API me allowed nahi hai.
         # Isliye agar username public hai tabhi button aayega.
@@ -170,12 +191,13 @@ async def bot_removed_logs(client, message, is_clone=False):
             bot_details = app.mention
 
         remove_log_text = f"""
-<b>{header_text}</b>
+<blockquote><b>{header_text}</b>
 
-<b>• ʙᴏᴛ :</b> {bot_details}
-<b>• ʀᴇᴍᴏᴠᴇᴅ ʙʏ :</b> {kicked_by}
-<b>• ᴄʜᴀᴛ :</b> {message.chat.title} [`{message.chat.id}`]
-<b>• ᴍᴇᴍʙᴇʀs :</b> {members_count}
+<b>• ʙᴏᴛ : {bot_details}</b>
+<b>• ʀᴇᴍᴏᴠᴇᴅ ʙʏ : {kicked_by}</b>
+<b>• ᴄʜᴀᴛ : {message.chat.title} [<code>{message.chat.id}</code>]</b>
+<b>• ᴏᴡɴᴇʀ : {owner}</b>
+<b>• ᴍᴇᴍʙᴇʀs : {members_count}</b></blockquote>
 """
         reply_markup = None
         if chat_link:
@@ -227,6 +249,8 @@ async def autoplay_log(client, chat_id, query, is_clone=False):
         members_count = await client.get_chat_members_count(chat_id)
     except:
         members_count = "Unknown"
+        
+    owner = await get_owner(client, chat_id)
 
     chat_link = None
     if chat_username:
@@ -243,12 +267,13 @@ async def autoplay_log(client, chat_id, query, is_clone=False):
         header_text = f"<b>{bot_mention} ᴀᴜᴛᴏᴘʟᴀʏ ʟᴏɢ</b>"
 
     logger_text = f"""
-{header_text}
+<blockquote>{header_text}
 
-<b>• ᴀᴄᴛɪᴏɴ :</b> Autoplay Triggered 🔄
-<b>• ᴛʀᴀᴄᴋ :</b> {query}
-<b>• ᴄʜᴀᴛ :</b> {chat_title} [`{chat_id}`]
-<b>• ᴍᴇᴍʙᴇʀs :</b> {members_count}
+<b>• ᴀᴄᴛɪᴏɴ : ᴀᴜᴛᴏᴘʟᴀʏ ᴛʀɪɢɢᴇʀᴇᴅ 🔄</b>
+<b>• ᴛʀᴀᴄᴋ : {query}</b>
+<b>• ᴄʜᴀᴛ : {chat_title} [<code>{chat_id}</code>]</b>
+<b>• ᴏᴡɴᴇʀ : {owner}</b>
+<b>• ᴍᴇᴍʙᴇʀs : {members_count}</b></blockquote>
 """
     reply_markup = None
     if chat_link:
