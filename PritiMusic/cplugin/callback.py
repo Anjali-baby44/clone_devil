@@ -21,7 +21,7 @@ from PritiMusic.utils.database import (
     get_assistant
 )
 
-# ✅ Autoplay ke database imports
+# ✅ Autoplay database imports
 from PritiMusic.utils.database.autoplay import is_autoplay_group, add_autoplay_group, remove_autoplay_group
 
 from PritiMusic.utils.decorators.language import languageCB
@@ -56,7 +56,7 @@ from strings import get_string
 from config import lyrical
 from PritiMusic.utils.database.clonedb import get_owner_id_from_db, get_cloned_support_chat, get_cloned_support_channel
 
-# Yahan hum styled_button aur ButtonStyle import kar rahe hain
+# Import styled buttons
 from button import styled_button, ButtonStyle
 
 
@@ -66,7 +66,7 @@ def get_random_img(img_list):
         if isinstance(img_list, list):
             return random.choice(img_list)
         return img_list
-    return "https://telegra.ph/file/2e3d368e77c449c287430.jpg" # Fallback
+    return "https://telegra.ph/file/2e3d368e77c449c287430.jpg"  # Fallback
 
 wrong = {}
 checker = {}
@@ -137,6 +137,7 @@ async def del_back_playlist_pages(client, CallbackQuery, _):
     state, pages, videoid, chat = callback_request.split("|")
     chat_id = int(chat)
     pages = int(pages)
+    
     if state == "Forw":
         if pages == 0:
             buttons = panel_markup_5(_, videoid, chat_id)
@@ -198,6 +199,7 @@ async def del_back_playlist(client, CallbackQuery, _):
     callback_data = CallbackQuery.data.strip()
     callback_request = callback_data.split(None, 1)[1]
     command, chat = callback_request.split("|")
+    
     if "_" in str(chat):
         bet = chat.split("_")
         chat = bet[0]
@@ -224,14 +226,10 @@ async def del_back_playlist(client, CallbackQuery, _):
             votemode[chat_id][CallbackQuery.message.id] = 0
 
         if CallbackQuery.from_user.id in upvoters[chat_id][CallbackQuery.message.id]:
-            (upvoters[chat_id][CallbackQuery.message.id]).remove(
-                CallbackQuery.from_user.id
-            )
+            (upvoters[chat_id][CallbackQuery.message.id]).remove(CallbackQuery.from_user.id)
             votemode[chat_id][CallbackQuery.message.id] -= 1
         else:
-            (upvoters[chat_id][CallbackQuery.message.id]).append(
-                CallbackQuery.from_user.id
-            )
+            (upvoters[chat_id][CallbackQuery.message.id]).append(CallbackQuery.from_user.id)
             votemode[chat_id][CallbackQuery.message.id] += 1
         
         upvote = await get_upvote_count(chat_id)
@@ -245,10 +243,8 @@ async def del_back_playlist(client, CallbackQuery, _):
             except:
                 return await CallbackQuery.edit_message_text(f"ғᴀɪʟᴇᴅ.")
             try:
-                if current["vidid"] != exists["vidid"]:
-                    return await CallbackQuery.edit_message.text(_["admin_35"])
-                if current["file"] != exists["file"]:
-                    return await CallbackQuery.edit_message.text(_["admin_35"])
+                if current["vidid"] != exists["vidid"] or current["file"] != exists["file"]:
+                    return await CallbackQuery.edit_message_text(_["admin_35"])
             except:
                 return await CallbackQuery.edit_message_text(_["admin_36"])
             try:
@@ -258,10 +254,7 @@ async def del_back_playlist(client, CallbackQuery, _):
             command = counter
             mention = "ᴜᴘᴠᴏᴛᴇs"
         else:
-            if (
-                CallbackQuery.from_user.id
-                in upvoters[chat_id][CallbackQuery.message.id]
-            ):
+            if CallbackQuery.from_user.id in upvoters[chat_id][CallbackQuery.message.id]:
                 await CallbackQuery.answer(_["admin_38"], show_alert=True)
             else:
                 await CallbackQuery.answer(_["admin_39"], show_alert=True)
@@ -287,11 +280,8 @@ async def del_back_playlist(client, CallbackQuery, _):
                 admins = adminlist.get(CallbackQuery.message.chat.id)
                 if not admins:
                     return await CallbackQuery.answer(_["admin_13"], show_alert=True)
-                else:
-                    if CallbackQuery.from_user.id not in admins:
-                        return await CallbackQuery.answer(
-                            _["admin_14"], show_alert=True
-                        )
+                elif CallbackQuery.from_user.id not in admins:
+                    return await CallbackQuery.answer(_["admin_14"], show_alert=True)
     
     if command == "Pause":
         if not await is_music_playing(chat_id):
@@ -352,7 +342,7 @@ async def del_back_playlist(client, CallbackQuery, _):
             has_spoiler=False
         )
 
-    elif command == "Stop" or command == "End":
+    elif command in ["Stop", "End"]:
         await CallbackQuery.answer()
         await Lucky.stop_stream(chat_id)
         await set_loop(chat_id, 0)
@@ -369,7 +359,7 @@ async def del_back_playlist(client, CallbackQuery, _):
         except:
             pass
 
-    # ✅ AUTOPLAY BUTTON LOGIC ADDED HERE
+    # ✅ AUTOPLAY BUTTON LOGIC
     elif command == "Autoplay":
         state = await is_autoplay_group(chat_id)
         if state:
@@ -416,10 +406,11 @@ async def del_back_playlist(client, CallbackQuery, _):
             popped = check.pop(0)
         except:
             return await CallbackQuery.answer(_["admin_43"], show_alert=True)
-        check = db.get(chat_id)
+        
         if not check:
             check.insert(0, popped)
             return await CallbackQuery.answer(_["admin_43"], show_alert=True)
+        
         await CallbackQuery.answer()
         random.shuffle(check)
         check.insert(0, popped)
@@ -432,11 +423,10 @@ async def del_back_playlist(client, CallbackQuery, _):
             has_spoiler=True
         )
 
-    elif command == "Skip" or command == "Replay":
+    elif command in ["Skip", "Replay"]:
         check = db.get(chat_id)
         if command == "Skip":
             txt = f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {mention} 🥀"
-            popped = None
             try:
                 popped = check.pop(0)
                 if popped:
@@ -444,9 +434,7 @@ async def del_back_playlist(client, CallbackQuery, _):
                 if not check:
                     await CallbackQuery.edit_message_text(f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {mention} 🥀")
                     await CallbackQuery.message.reply_text(
-                        text=_["admin_6"].format(
-                            mention, CallbackQuery.message.chat.title
-                        ),
+                        text=_["admin_6"].format(mention, CallbackQuery.message.chat.title),
                         reply_markup=close_markup(_),
                     )
                     try:
@@ -457,9 +445,7 @@ async def del_back_playlist(client, CallbackQuery, _):
                 try:
                     await CallbackQuery.edit_message_text(f"➻ sᴛʀᴇᴀᴍ sᴋɪᴩᴩᴇᴅ 🎄\n│ \n└ʙʏ : {mention} 🥀")
                     await CallbackQuery.message.reply_text(
-                        text=_["admin_6"].format(
-                            mention, CallbackQuery.message.chat.title
-                        ),
+                        text=_["admin_6"].format(mention, CallbackQuery.message.chat.title),
                         reply_markup=close_markup(_),
                     )
                     return await Lucky.stop_stream(chat_id)
@@ -526,10 +512,7 @@ async def del_back_playlist(client, CallbackQuery, _):
             )
             try:
                 file_path, direct = await YouTube.download(
-                    videoid,
-                    mystic,
-                    videoid=True,
-                    video=status,
+                    videoid, mystic, videoid=True, video=status
                 )
             except:
                 return await mystic.edit_text(_["call_6"])
@@ -580,9 +563,7 @@ async def del_back_playlist(client, CallbackQuery, _):
             await CallbackQuery.edit_message_text(txt, reply_markup=close_markup(_))
             
         else:
-            if videoid == "telegram":
-                image = None
-            elif videoid == "soundcloud":
+            if videoid in ["telegram", "soundcloud"]:
                 image = None
             else:
                 try:
@@ -649,15 +630,15 @@ async def del_back_playlist(client, CallbackQuery, _):
         duration_seconds = int(playing[0]["seconds"])
         if duration_seconds == 0:
             return await CallbackQuery.answer(_["admin_22"], show_alert=True)
+        
         file_path = playing[0]["file"]
         if "index_" in file_path or "live_" in file_path:
             return await CallbackQuery.answer(_["admin_22"], show_alert=True)
+        
         duration_played = int(playing[0]["played"])
-        if int(command) in [1, 2]:
-            duration_to_skip = 10
-        else:
-            duration_to_skip = 30
+        duration_to_skip = 10 if int(command) in [1, 2] else 30
         duration = playing[0]["dur"]
+        
         if int(command) in [1, 3]:
             if (duration_played - duration_to_skip) <= 10:
                 bet = seconds_to_min(duration_played)
@@ -674,6 +655,7 @@ async def del_back_playlist(client, CallbackQuery, _):
                     show_alert=True,
                 )
             to_seek = duration_played + duration_to_skip + 1
+            
         await CallbackQuery.answer()
         mystic = await CallbackQuery.message.reply_text(_["admin_24"])
         if "vid_" in file_path:
@@ -690,10 +672,12 @@ async def del_back_playlist(client, CallbackQuery, _):
             )
         except:
             return await mystic.edit_text(_["admin_26"])
+            
         if int(command) in [1, 3]:
             db[chat_id][0]["played"] -= duration_to_skip
         else:
             db[chat_id][0]["played"] += duration_to_skip
+            
         string = _["admin_25"].format(seconds_to_min(to_seek))
         await mystic.edit_text(f"{string}\n\nᴄʜᴀɴɢᴇs ᴅᴏɴᴇ ʙʏ : {mention} !")
 
