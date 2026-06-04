@@ -196,3 +196,74 @@ async def bot_removed_logs(client, message, is_clone=False):
                 print(f"[ERROR] Sending Remove Log Failed: {e}")
     except Exception as e:
         print(f"[ERROR] Bot Removed Log Generation Failed: {e}")
+
+
+# ====================================================
+# NEW FUNCTION: Autoplay Logs
+# ====================================================
+async def autoplay_log(client, chat_id, query, is_clone=False):
+    """
+    Isko aap `core/call.py` mein jahan autoplay gaana add hota hai wahan call kar sakte hain.
+    Example: await autoplay_log(client, chat_id, next_track["title"], is_clone=False)
+    """
+    if not await is_on_off(2):
+        return
+        
+    try:
+        bot = await client.get_me()
+        bot_mention = bot.mention
+    except:
+        return
+
+    try:
+        chat = await client.get_chat(chat_id)
+        chat_title = chat.title
+        chat_username = chat.username
+    except:
+        chat_title = "Unknown Chat"
+        chat_username = None
+
+    try:
+        members_count = await client.get_chat_members_count(chat_id)
+    except:
+        members_count = "Unknown"
+
+    chat_link = None
+    if chat_username:
+        chat_link = f"https://t.me/{chat_username}"
+    else:
+        try:
+            chat_link = await client.export_chat_invite_link(chat_id)
+        except:
+            pass
+
+    if is_clone:
+        header_text = f"🤖 <b>ᴄʟᴏɴᴇ ᴀᴜᴛᴏᴘʟᴀʏ ʟᴏɢ : @{bot.username}</b>"
+    else:
+        header_text = f"<b>{bot_mention} ᴀᴜᴛᴏᴘʟᴀʏ ʟᴏɢ</b>"
+
+    logger_text = f"""
+{header_text}
+
+<b>• ᴀᴄᴛɪᴏɴ :</b> Autoplay Triggered 🔄
+<b>• ᴛʀᴀᴄᴋ :</b> {query}
+<b>• ᴄʜᴀᴛ :</b> {chat_title} [`{chat_id}`]
+<b>• ᴍᴇᴍʙᴇʀs :</b> {members_count}
+"""
+    reply_markup = None
+    if chat_link:
+        reply_markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🔗 ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link)]]
+        )
+
+    if chat_id != LOGGER_ID:
+        try:
+            await app.send_message(
+                chat_id=LOGGER_ID,
+                text=logger_text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            print(f"[ERROR] Sending Autoplay Log Failed: {e}")
