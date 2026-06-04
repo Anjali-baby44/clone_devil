@@ -5,7 +5,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from PritiMusic.utils.database.autoplay import is_autoplay_group, add_autoplay_group, remove_autoplay_group
 from PritiMusic.utils.decorators import AdminRightsCheck
-from config import BANNED_USERS
+from config import BANNED_USERS  
 
 @Client.on_message(
     filters.command(["autoplay"]) 
@@ -22,15 +22,13 @@ async def autoplay_mode_clone(client: Client, message: Message, _, chat_id):
         # Pehle ON tha, ab OFF kar rahe hain
         await remove_autoplay_group(chat_id)
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton(text="Autoplay : Disabled 🔴", callback_data="dummy_btn")],
-            [InlineKeyboardButton(text="🤞 𝐁𝐄𝐓𝐀 𝐁𝐎𝐓 𝐇𝐔𝐁", url="https://t.me/betabot_hub")]
+            [InlineKeyboardButton(text="Autoplay : Disabled 🔴", callback_data="dummy_btn")]
         ])
         return await message.reply_text(text, reply_markup=reply_markup)
     else:
         # Pehle OFF tha, ab ON kar rahe hain
         await add_autoplay_group(chat_id)
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton(text="Autoplay : Enabled 🟢", callback_data="dummy_btn")],
-            [InlineKeyboardButton(text="🤞 𝐁𝐄𝐓𝐀 𝐁𝐎𝐓 𝐇𝐔𝐁", url="https://t.me/betabot_hub")]
+            [InlineKeyboardButton(text="Autoplay : Enabled 🟢", callback_data="dummy_btn")]
         ])
         return await message.reply_text(text, reply_markup=reply_markup)
