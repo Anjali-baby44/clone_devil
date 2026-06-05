@@ -340,7 +340,7 @@ class Call(PyTgCalls):
                     last_vidid = str(popped.get("vidid") or "")
 
                     # ==========================================
-                    # Phase 1: Smart Language Autoplay (With yt-dlp Fallback)
+                    # Phase 1: Smart Language Autoplay (With Float-Safe yt-dlp Fallback)
                     # ==========================================
                     try:
                         lang_pools = {
@@ -390,9 +390,9 @@ class Call(PyTgCalls):
                                     if 30 <= dur_sec <= 900:
                                         valid_choices.append((vidid, str(res.get("title") or "Unknown Title").title(), next_dur, dur_sec))
                         except Exception:
-                            pass # Ignore bugs, fallback active
+                            pass 
 
-                        # Fallback: yt-dlp (Agar fail hua)
+                        # Fallback: yt-dlp 
                         if not valid_choices:
                             import yt_dlp
                             loop_e = asyncio.get_event_loop()
@@ -403,7 +403,14 @@ class Call(PyTgCalls):
                                 for entry in r["entries"]:
                                     vidid = entry.get("id")
                                     if not vidid or vidid == last_vidid: continue
-                                    dur_sec = entry.get("duration", 0)
+                                    
+                                    # 🚀 FLOAT TYPE FIX HERE
+                                    raw_dur = entry.get("duration", 0)
+                                    try:
+                                        dur_sec = int(float(raw_dur)) if raw_dur else 0
+                                    except (ValueError, TypeError):
+                                        dur_sec = 0
+                                        
                                     if not dur_sec or dur_sec < 30 or dur_sec > 900: continue
                                     m, s = divmod(dur_sec, 60)
                                     h, m = divmod(m, 60)
@@ -629,6 +636,5 @@ class Call(PyTgCalls):
         async def stream_end_handler1(client, update: Update):
             if not isinstance(update, StreamAudioEnded): return
             await self.change_stream(client, update.chat_id)
-
 
 Lucky = Call()
