@@ -392,56 +392,38 @@ class Call(PyTgCalls):
                 await set_loop(chat_id, loop)
             await auto_clean(popped)
             
-            # ⬇️ --- NEW TRULY RANDOM SAME-LANGUAGE AUTOPLAY LOGIC --- ⬇️
+            # ⬇️ --- VIVAAN DUAL-FALLBACK AUTOPLAY LOGIC --- ⬇️
             if not check:
                 from PritiMusic.utils.database.autoplay import is_autoplay_group
                 
                 auto_on = await is_autoplay_group(chat_id)
                 if auto_on and popped:
+                    success = False
+                    raw_title = popped.get("title", "")
+                    title_lower = str(raw_title).lower()
+                    last_vidid = str(popped.get("vidid", ""))
+
+                    # Phase 1: Smart Language Autoplay
                     try:
                         from youtubesearchpython.__future__ import VideosSearch
                         
-                        raw_title = popped.get("title")
-                        last_vidid = str(popped.get("vidid", ""))
-                        title_lower = str(raw_title).lower() if raw_title else ""
-
-                        # 1. Language Smart Pools for Query Variety
                         lang_pools = {
-                            "Hindi": [
-                                "latest hindi hit songs", "bollywood romantic audio hits", 
-                                "hindi sad songs official audio", "trending bollywood tracks", 
-                                "90s hindi evergreen superhits", "new hindi lofi songs"
-                            ],
-                            "Punjabi": [
-                                "latest punjabi hit tracks", "punjabi pop party songs", 
-                                "trending punjabi single", "punjabi bhangra beats audio"
-                            ],
-                            "Bhojpuri": [
-                                "latest bhojpuri non stop hits", "bhojpuri mp3 audio songs", 
-                                "trending bhojpuri dj remix", "new bhojpuri audio tracks"
-                            ],
-                            "Haryanvi": [
-                                "latest haryanvi songs hits", "haryanvi dance mix audio", "trending haryanvi music"
-                            ],
-                            "Tamil": [
-                                "latest tamil kollywood hits", "tamil romantic melodies audio", "trending tamil movie songs"
-                            ],
-                            "Telugu": [
-                                "latest telugu tollywood hits", "telugu non stop melody songs", "trending telugu tracks"
-                            ],
-                            "English": [
-                                "global top english hits", "billboard hot 100 english pop", "trending english tracks audio"
-                            ]
+                            "Hindi": ["latest hindi hit songs", "bollywood romantic audio hits", "hindi sad songs official audio", "trending bollywood tracks"],
+                            "Punjabi": ["latest punjabi hit tracks", "punjabi pop party songs", "trending punjabi single"],
+                            "Bhojpuri": ["latest bhojpuri non stop hits", "bhojpuri mp3 audio songs", "trending bhojpuri dj remix"],
+                            "Haryanvi": ["latest haryanvi songs hits", "haryanvi dance mix audio"],
+                            "Tamil": ["latest tamil kollywood hits", "tamil romantic melodies audio"],
+                            "Telugu": ["latest telugu tollywood hits", "telugu non stop melody songs"],
+                            "English": ["global top english hits", "billboard hot 100 english pop"]
                         }
 
-                        # 2. Keyword Map to Detect Language from Title
                         keywords_map = {
-                            "Punjabi": ["punjabi", "jass", "sidhu", "karan", "diljit", "amrit", "ap dhillon", "gurinder"],
-                            "Bhojpuri": ["bhojpuri", "khesari", "pawan", "shilpi", "antra", "bhojpuriya"],
-                            "Haryanvi": ["haryanvi", "sapna", "renuka", "gulzaar", "md desi"],
-                            "Tamil": ["tamil", "anirudh", "rahman", "kollywood", "ilayaraja"],
-                            "Telugu": ["telugu", "allu", "ramarao", "tollywood", "dsp ", "thaman"],
-                            "English": ["english", "pop song", "taylor swift", "justin bieber", "remix english", "hiphop english"]
+                            "Punjabi": ["punjabi", "jass", "sidhu", "karan", "diljit", "amrit", "ap dhillon"],
+                            "Bhojpuri": ["bhojpuri", "khesari", "pawan", "shilpi", "antra"],
+                            "Haryanvi": ["haryanvi", "sapna", "renuka", "gulzaar"],
+                            "Tamil": ["tamil", "anirudh", "rahman", "kollywood"],
+                            "Telugu": ["telugu", "allu", "ramarao", "tollywood", "dsp"],
+                            "English": ["english", "pop song", "taylor swift", "justin bieber"]
                         }
 
                         detected_lang = "Hindi"  # Default fallback
@@ -450,23 +432,25 @@ class Call(PyTgCalls):
                                 detected_lang = lang
                                 break
 
-                        # 3. Choose a COMPLETELY RANDOM playlist query from the detected language pool
                         search_query = random.choice(lang_pools[detected_lang])
-                        
-                        # Fetch 30 items to maximize variety and avoid repetitions
                         search = VideosSearch(search_query, limit=30)
                         result = await search.next()
                         
                         if result and result.get("result"):
-                            # Filter out the exact previous video ID
                             choices = [res for res in result["result"] if str(res.get("id")) != last_vidid]
-                            
                             if choices:
-                                # Pick a completely random track from the list
                                 next_track = random.choice(choices)
                                 next_vidid = str(next_track.get("id") or "")
-                                next_title = str(next_track.get("title") or "Unknown Title")
-                                next_dur = str(next_track.get("duration") or "Unknown")
+                                next_title = str(next_track.get("title") or "Unknown Title").title()
+                                next_dur = str(next_track.get("duration") or "0:00")
+                                
+                                duration_sec = 0
+                                if next_dur and ":" in next_dur:
+                                    parts = next_dur.split(":")
+                                    if len(parts) == 2:
+                                        duration_sec = int(parts[0]) * 60 + int(parts[1])
+                                    elif len(parts) == 3:
+                                        duration_sec = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
                                 
                                 db[chat_id].append({
                                     "vidid": next_vidid,
@@ -476,22 +460,52 @@ class Call(PyTgCalls):
                                     "file": f"vid_{next_vidid}",
                                     "streamtype": "audio", 
                                     "user_id": 0,          
-                                    "seconds": 0, 
+                                    "seconds": duration_sec, 
                                     "dur": next_dur,
                                     "old_dur": next_dur,
                                     "old_second": 0,
                                     "client": popped.get("client")
                                 })
-                                
+                                success = True
                                 try:
                                     from PritiMusic.utils.logger import autoplay_log
                                     await autoplay_log(app, chat_id, next_title)
                                 except Exception:
                                     pass
                     except Exception as e:
-                        LOGGER(__name__).error(f"Autoplay Error: {e}")
+                        LOGGER(__name__).warning(f"Smart Autoplay Error: {e}")
 
-            if not check: 
+                    # Phase 2: Native YouTube Recommendation Fallback
+                    if not success:
+                        try:
+                            seed_seconds = int(popped.get("seconds") or 0)
+                            max_duration = min(max(seed_seconds * 3, 240), 900) if seed_seconds > 0 else None
+                            
+                            recommendation = await YouTube.autoplay(
+                                last_vidid,
+                                raw_title,
+                                max_duration=max_duration,
+                            )
+                            if recommendation:
+                                db[chat_id].append({
+                                    "title": recommendation["title"].title(),
+                                    "dur": recommendation["duration_min"],
+                                    "streamtype": popped.get("streamtype", "audio"),
+                                    "by": "Autoplay",
+                                    "user_id": 0,
+                                    "chat_id": chat_id,
+                                    "file": f"vid_{recommendation['vidid']}",
+                                    "vidid": recommendation["vidid"],
+                                    "seconds": recommendation["duration_sec"],
+                                    "old_dur": recommendation["duration_min"],
+                                    "old_second": 0,
+                                    "played": 0,
+                                    "client": popped.get("client")
+                                })
+                        except Exception as e:
+                            LOGGER(__name__).warning(f"Native Autoplay fallback failed: {e}")
+
+            if not db.get(chat_id): 
                 await _clear_(chat_id)
                 if chat_id in self.active_clients:
                     del self.active_clients[chat_id]
@@ -601,6 +615,7 @@ class Call(PyTgCalls):
                                 _["call_6"], disable_web_page_preview=True
                             )
                         except Exception:
+                            # 🛡️ ERRORLESS FIX: Safe Catch if message is deleted
                             return
                 
                 if not file_path or str(file_path) == "None":
@@ -635,6 +650,7 @@ class Call(PyTgCalls):
 
                 button = stream_markup(_, chat_id)
                 try:
+                    # 🛡️ ERRORLESS FIX: Prevent MessageIdInvalid Crash
                     await mystic.delete()
                 except Exception:
                     pass
