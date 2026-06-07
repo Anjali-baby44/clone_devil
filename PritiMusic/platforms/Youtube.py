@@ -44,7 +44,6 @@ async def api_download(video_id: str, download_type: str, title: str = None) -> 
 
     try:
         async with aiohttp.ClientSession() as session:
-            # Shruti API Download Request
             async with session.get(
                 f"{API_URL}/download",
                 params={"url": video_id, "type": "audio" if download_type == "audio" else "video", "api_key": API_KEY},
@@ -70,7 +69,7 @@ async def api_download(video_id: str, download_type: str, title: str = None) -> 
                 pass
         return None
 
-# 🛡️ FALLBACK METHOD (Jugaad)
+# 🛡️ FALLBACK METHOD
 async def ytdl_fallback_download(link: str, download_type: str, title: str = None) -> str:
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
@@ -112,12 +111,8 @@ async def download_song(link: str, title: str = None) -> str:
     if not video_id or len(video_id) < 3:
         return None
         
-    # Pehle Shruti API try karega
     api_result = await api_download(video_id, "audio", title)
-    if api_result:
-        return api_result
-        
-    # Agar API server down hua, toh yt-dlp fallback use karega
+    if api_result: return api_result
     return await ytdl_fallback_download(link, "audio", title)
 
 # 🎥 MAIN VIDEO DOWNLOADER
@@ -126,14 +121,9 @@ async def download_video(link: str, title: str = None) -> str:
     if not video_id or len(video_id) < 3:
         return None
 
-    # Pehle Shruti API try karega
     api_result = await api_download(video_id, "video", title)
-    if api_result:
-        return api_result
-        
-    # Agar API server down hua, toh yt-dlp fallback use karega
+    if api_result: return api_result
     return await ytdl_fallback_download(link, "video", title)
-
 
 # ----------------- YOUTUBE API CLASS -----------------
 
@@ -171,41 +161,80 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            title = result["title"]
-            duration_min = result["duration"]
-            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-            vidid = result["id"]
-            duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
-        return title, duration_min, duration_sec, thumbnail, vidid
+            
+        # Try 1: Primary Search
+        try:
+            results = VideosSearch(link, limit=1)
+            response = await results.next()
+            if response and response.get("result"):
+                for result in response["result"]:
+                    title = result["title"]
+                    duration_min = result["duration"]
+                    thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+                    vidid = result["id"]
+                    duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
+                    return title, duration_min, duration_sec, thumbnail, vidid
+        except Exception:
+            pass
+
+        # Try 2: yt-dlp Fallback Search (Fix for "pal pal song" issue)
+        try:
+            loop = asyncio.get_event_loop()
+            ydl_opts = {"quiet": True, "extract_flat": True}
+            ydl = yt_dlp.YoutubeDL(ydl_opts)
+            search_query = link if "youtube.com" in link or "youtu.be" in link else f"ytsearch1:{link}"
+            
+            r = await loop.run_in_executor(None, lambda: ydl.extract_info(search_query, download=False))
+            if r and "entries" in r and len(r["entries"]) > 0:
+                entry = r["entries"][0]
+                title = entry.get("title")
+                vidid = entry.get("id")
+                dur_sec = int(entry.get("duration", 0))
+                m, s = divmod(dur_sec, 60)
+                h, m = divmod(m, 60)
+                duration_min = f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+                thumbnail = f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
+                return title, duration_min, dur_sec, thumbnail, vidid
+        except Exception as e:
+            LOGGER.error(f"yt-dlp search fallback failed in details: {e}")
+
+        return None, None, None, None, None
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            return result["title"]
+        try:
+            results = VideosSearch(link, limit=1)
+            for result in (await results.next())["result"]:
+                return result["title"]
+        except Exception:
+            return "Unknown Title"
 
     async def duration(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            return result["duration"]
+        try:
+            results = VideosSearch(link, limit=1)
+            for result in (await results.next())["result"]:
+                return result["duration"]
+        except Exception:
+            return "0:00"
 
     async def thumbnail(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            return result["thumbnails"][0]["url"].split("?")[0]
+        try:
+            results = VideosSearch(link, limit=1)
+            for result in (await results.next())["result"]:
+                return result["thumbnails"][0]["url"].split("?")[0]
+        except Exception:
+            return "https://telegra.ph/file/2e3d368e77c449c287430.jpg"
 
     async def video(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -213,7 +242,6 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
         try:
-            # We don't have title context here by default, so it relies on video_id
             downloaded_file = await download_video(link)
             if downloaded_file:
                 return 1, downloaded_file
@@ -246,21 +274,57 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            title = result["title"]
-            duration_min = result["duration"]
-            vidid = result["id"]
-            yturl = result["link"]
-            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-        track_details = {
-            "title": title,
-            "link": yturl,
-            "vidid": vidid,
-            "duration_min": duration_min,
-            "thumb": thumbnail,
-        }
-        return track_details, vidid
+            
+        # Try 1: Primary Search
+        try:
+            results = VideosSearch(link, limit=1)
+            response = await results.next()
+            if response and response.get("result"):
+                result = response["result"][0]
+                title = result["title"]
+                duration_min = result["duration"]
+                vidid = result["id"]
+                yturl = result["link"]
+                thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+                return {
+                    "title": title,
+                    "link": yturl,
+                    "vidid": vidid,
+                    "duration_min": duration_min,
+                    "thumb": thumbnail,
+                }, vidid
+        except Exception:
+            pass
+
+        # Try 2: yt-dlp Fallback Search
+        try:
+            loop = asyncio.get_event_loop()
+            ydl_opts = {"quiet": True, "extract_flat": True}
+            ydl = yt_dlp.YoutubeDL(ydl_opts)
+            search_query = link if "youtube.com" in link or "youtu.be" in link else f"ytsearch1:{link}"
+            r = await loop.run_in_executor(None, lambda: ydl.extract_info(search_query, download=False))
+            
+            if r and "entries" in r and len(r["entries"]) > 0:
+                entry = r["entries"][0]
+                vidid = entry.get("id")
+                title = entry.get("title")
+                dur_sec = int(entry.get("duration", 0))
+                m, s = divmod(dur_sec, 60)
+                h, m = divmod(m, 60)
+                duration_min = f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+                thumbnail = f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
+                
+                return {
+                    "title": title,
+                    "link": f"https://www.youtube.com/watch?v={vidid}",
+                    "vidid": vidid,
+                    "duration_min": duration_min,
+                    "thumb": thumbnail,
+                }, vidid
+        except Exception as e:
+            LOGGER.error(f"yt-dlp search fallback failed in track: {e}")
+
+        return None, None
 
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -311,13 +375,18 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        a = VideosSearch(link, limit=10)
-        result = (await a.next()).get("result")
-        title = result[query_type]["title"]
-        duration_min = result[query_type]["duration"]
-        vidid = result[query_type]["id"]
-        thumbnail = result[query_type]["thumbnails"][0]["url"].split("?")[0]
-        return title, duration_min, thumbnail, vidid
+            
+        try:
+            a = VideosSearch(link, limit=10)
+            result = (await a.next()).get("result")
+            title = result[query_type]["title"]
+            duration_min = result[query_type]["duration"]
+            vidid = result[query_type]["id"]
+            thumbnail = result[query_type]["thumbnails"][0]["url"].split("?")[0]
+            return title, duration_min, thumbnail, vidid
+        except Exception:
+            # Basic fallback for inline slider if search fails
+            return "Unknown Title", "0:00", "https://telegra.ph/file/2e3d368e77c449c287430.jpg", "None"
 
     async def download(
         self,
@@ -333,7 +402,6 @@ class YouTubeAPI:
         if videoid:
             link = self.base + link
         try:
-            # Type check: if title passed is a boolean, discard it to avoid stringified "True"/"False" files
             file_title = title if isinstance(title, str) else None
 
             if video:
@@ -349,15 +417,11 @@ class YouTubeAPI:
             return None, False
 
     async def autoplay(self, last_vidid: str, title: str, max_duration: int = None):
-        """
-        Custom Autoplay function with robust yt-dlp fallback & Float Safe parsing.
-        """
         try:
             import random
             search_query = f"{title} official audio"
             valid_choices = []
             
-            # Primary: youtubesearchpython
             try:
                 search = VideosSearch(search_query, limit=15)
                 result = await search.next()
@@ -391,9 +455,7 @@ class YouTubeAPI:
             except Exception:
                 pass 
 
-            # Fallback: yt-dlp 
             if not valid_choices:
-                import yt_dlp
                 loop = asyncio.get_event_loop()
                 ytdl_opts = {"quiet": True, "extract_flat": True}
                 ydl = yt_dlp.YoutubeDL(ytdl_opts)
@@ -433,6 +495,5 @@ class YouTubeAPI:
         except Exception as e:
             LOGGER.error(f"YouTube Autoplay Function Error: {e}")
             return None
-
 
 YouTube = YouTubeAPI()
