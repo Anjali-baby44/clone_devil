@@ -69,7 +69,7 @@ async def api_download(video_id: str, download_type: str, title: str = None) -> 
                 pass
         return None
 
-# 🛡️ FALLBACK METHOD (UPDATED FOR 1080p/720p/480p OPTIMIZATION)
+# 🛡️ FALLBACK METHOD (UPDATED FOR 1080p/720p/480p OPTIMIZATION & ANTI-BOT BYPASS)
 async def ytdl_fallback_download(link: str, download_type: str, title: str = None) -> str:
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
@@ -84,11 +84,14 @@ async def ytdl_fallback_download(link: str, download_type: str, title: str = Non
     video_format = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
     
     ydl_opts = {
-        'format': video_format if download_type == "video" else 'bestaudio/best',
+        'format': video_format if download_type == "video" else 'bestaudio/bestvideo+bestaudio/best', # Audio block bypass
         'outtmpl': file_path,
         'quiet': True,
         'no_warnings': True,
-        'cookiefile': 'cookies.txt', # ✅ ADDED COOKIES HERE
+        'cookiefile': 'cookies.txt', # ✅ Cookies for 503 bypass
+        'extractor_args': {'youtube': ['player_client=android', 'player_client=ios']}, # ✅ SPOOFING (Crucial for format error)
+        'geo_bypass': True,
+        'nocheckcertificate': True,
     }
     
     if download_type == "audio":
@@ -181,10 +184,15 @@ class YouTubeAPI:
         except Exception:
             pass
 
-        # Try 2: yt-dlp Fallback Search (Fix for "pal pal song" issue)
+        # Try 2: yt-dlp Fallback Search
         try:
             loop = asyncio.get_event_loop()
-            ydl_opts = {"quiet": True, "extract_flat": True, "cookiefile": "cookies.txt"} # ✅ ADDED COOKIES HERE
+            ydl_opts = {
+                "quiet": True, 
+                "extract_flat": True, 
+                "cookiefile": "cookies.txt",
+                "extractor_args": {"youtube": ["player_client=android", "player_client=ios"]} # ✅ Client Spoofing
+            } 
             ydl = yt_dlp.YoutubeDL(ydl_opts)
             search_query = link if "youtube.com" in link or "youtu.be" in link else f"ytsearch1:{link}"
             
@@ -303,7 +311,12 @@ class YouTubeAPI:
         # Try 2: yt-dlp Fallback Search
         try:
             loop = asyncio.get_event_loop()
-            ydl_opts = {"quiet": True, "extract_flat": True, "cookiefile": "cookies.txt"} # ✅ ADDED COOKIES HERE
+            ydl_opts = {
+                "quiet": True, 
+                "extract_flat": True, 
+                "cookiefile": "cookies.txt",
+                "extractor_args": {"youtube": ["player_client=android", "player_client=ios"]} # ✅ Client Spoofing
+            }
             ydl = yt_dlp.YoutubeDL(ydl_opts)
             search_query = link if "youtube.com" in link or "youtu.be" in link else f"ytsearch1:{link}"
             r = await loop.run_in_executor(None, lambda: ydl.extract_info(search_query, download=False))
@@ -338,7 +351,8 @@ class YouTubeAPI:
             
         ytdl_opts = {
             "quiet": True,
-            "cookiefile": "cookies.txt", # ✅ ADDED COOKIES HERE
+            "cookiefile": "cookies.txt", 
+            "extractor_args": {"youtube": ["player_client=android", "player_client=ios"]}, # ✅ Client Spoofing
             "external_downloader": "aria2c",
             "external_downloader_args": [
                 "-x", "16",            
@@ -462,7 +476,12 @@ class YouTubeAPI:
 
             if not valid_choices:
                 loop = asyncio.get_event_loop()
-                ytdl_opts = {"quiet": True, "extract_flat": True, "cookiefile": "cookies.txt"} # ✅ ADDED COOKIES HERE
+                ytdl_opts = {
+                    "quiet": True, 
+                    "extract_flat": True, 
+                    "cookiefile": "cookies.txt",
+                    "extractor_args": {"youtube": ["player_client=android", "player_client=ios"]} # ✅ Client Spoofing
+                } 
                 ydl = yt_dlp.YoutubeDL(ytdl_opts)
                 
                 r = await loop.run_in_executor(None, lambda: ydl.extract_info(f"ytsearch10:{search_query}", download=False))
