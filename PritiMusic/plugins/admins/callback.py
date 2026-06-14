@@ -296,11 +296,23 @@ async def del_back_playlist(client, CallbackQuery, _):
 
         button = stream_markup(_, chat_id)
         img = await get_thumb(videoid, CallbackQuery.from_user.id, client)
+        
+        # ✅ BUG FIX: Safely determine the photo to prevent ValueError crash
+        final_photo = None
+        if img:
+            final_photo = img
+        else:
+            if isinstance(STREAM_IMG_URL, list):
+                final_photo = random.choice(STREAM_IMG_URL)
+            else:
+                final_photo = STREAM_IMG_URL
+
         run = await CallbackQuery.message.reply_photo(
-            photo=img if img else STREAM_IMG_URL,
+            photo=final_photo,
             caption=_["stream_1"].format(f"https://t.me/{app.username}?start=info_{videoid}", title[:23], duration, user),
             reply_markup=InlineKeyboardMarkup(button),
         )
+        
         if chat_id in db and len(db[chat_id]) > 0:
             db[chat_id][0]["mystic"] = run
             db[chat_id][0]["markup"] = "tg"
