@@ -1,23 +1,47 @@
-import random 
+import random
+from pyrogram.types import InlineKeyboardButton
+from pyrogram.enums import ButtonStyle
 import config
 from PritiMusic import app
 
-# Yahan styled_button aur ButtonStyle import kiya gaya hai
-from button import styled_button, ButtonStyle
+# 🔥 PREMIUM EMOJIS LIST 🔥
+PREMIUM_EMOJIS = [
+    "5422831825178206894", 
+    "5368324170673489600",
+    "5206607081334906820",
+    "5206380668048496464"
+]
+
+# 🎨 Dynamic Color Generator (Random Styles)
+def get_style_map():
+    styles = [ButtonStyle.PRIMARY, ButtonStyle.SUCCESS, ButtonStyle.DANGER]
+    random.shuffle(styles)
+    # Row me buttons ke hisaab se random color assign hoga
+    return {1: styles[0], 2: styles[1], 3: styles[2]}
+
+# 🔘 Smart Button Creator (Now with user_id support)
+def create_btn(text, cb=None, url=None, user_id=None, style=ButtonStyle.PRIMARY, no_emoji=False):
+    kwargs = {"text": text, "style": style}
+    if cb: kwargs["callback_data"] = cb
+    if url: kwargs["url"] = url
+    if user_id: kwargs["user_id"] = user_id
+    if not no_emoji: kwargs["icon_custom_emoji_id"] = random.choice(PREMIUM_EMOJIS)
+    return InlineKeyboardButton(**kwargs)
 
 
 def start_panel(_):
+    s_map = get_style_map()
     buttons = [
         [
-            styled_button(
+            create_btn(
                 text=_["SO_B_1"], 
                 url=f"https://t.me/{app.username}?startgroup=true",
-                style=ButtonStyle.SUCCESS
+                style=s_map[2]
             ),
-            styled_button(
+            create_btn(
                 text=_["S_B_2"], 
                 url=config.SUPPORT_CHAT, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
         ],
     ]
@@ -25,43 +49,44 @@ def start_panel(_):
 
 
 def private_panel(_):
+    s_map = get_style_map()
     buttons = [
         [
-            styled_button(
+            create_btn(
                 text=_["S_B_3"],
                 url=f"https://t.me/{app.username}?startgroup=true",
-                style=ButtonStyle.SUCCESS
+                style=s_map[1]
             )
         ],
         [
-            styled_button(
+            create_btn(
                 text=_["S_B_5"], 
                 user_id=config.OWNER_ID, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
-            styled_button(
+            create_btn(
                 text="ᴄʟᴏɴᴇ", 
-                callback_data="clone_page", 
-                style=ButtonStyle.SUCCESS
+                cb="clone_page", 
+                style=s_map[2]
             )
         ],
         [
-            styled_button(
+            create_btn(
                 text="sᴜᴘᴘᴏʀᴛ", 
-                callback_data="support_page", 
-                style=ButtonStyle.PRIMARY
+                cb="support_page", 
+                style=s_map[2]
             ),
-            styled_button(
+            create_btn(
                 text=" sᴏᴜʀᴄᴇ", 
-                callback_data="gib_source", 
-                style=ButtonStyle.PRIMARY
+                cb="gib_source", 
+                style=s_map[2]
             )
         ],
         [
-            styled_button(
+            create_btn(
                 text=_["S_B_4"], 
-                callback_data="settings_back_helper", 
-                style=ButtonStyle.PRIMARY
+                cb="settings_back_helper", 
+                style=s_map[1]
             )
         ],
     ]
@@ -69,24 +94,25 @@ def private_panel(_):
 
 
 def support_panel(_):
+    s_map = get_style_map()
     buttons = [
         [
-            styled_button(
+            create_btn(
                 text=_["S_B_2"], 
                 url=config.SUPPORT_CHAT, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
-            styled_button(
+            create_btn(
                 text=_["S_B_6"], 
                 url=config.SUPPORT_CHANNEL, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
         ],
         [
-            styled_button(
+            create_btn(
                 text=_["BACK_BUTTON"], 
-                callback_data="settingsback_helper", 
-                style=ButtonStyle.PRIMARY
+                cb="settingsback_helper", 
+                style=s_map[1]
             )
         ]
     ]
@@ -94,36 +120,37 @@ def support_panel(_):
 
 
 def about_panel(_):
+    s_map = get_style_map()
     buttons = [
         [
-            styled_button(
+            create_btn(
                 text=_["S_B_5"], 
                 user_id=config.OWNER_ID, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
-            styled_button(
+            create_btn(
                 text=_["S_B_11"], 
                 url=config.GITHUB, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
         ],
         [
-            styled_button(
+            create_btn(
                 text=_["S_B_6"], 
                 url=config.SUPPORT_CHANNEL, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             ),
-            styled_button(
+            create_btn(
                 text=_["S_B_2"], 
                 url=config.SUPPORT_CHAT, 
-                style=ButtonStyle.PRIMARY
+                style=s_map[2]
             )
         ],
         [
-            styled_button(
+            create_btn(
                 text=_["BACK_BUTTON"], 
-                callback_data="settingsback_helper", 
-                style=ButtonStyle.PRIMARY
+                cb="settingsback_helper", 
+                style=s_map[1]
             )
         ]
     ]
