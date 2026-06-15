@@ -59,11 +59,6 @@ FORCE_JOIN_LINKS = [
     "https://t.me/betabot_support",
 ]
 
-# ==========================================
-# 🎧 DOLBY-LIKE SWEET SOUND EQ PARAMETERS
-# ==========================================
-DOLBY_EQ = "-af \"crystalizer=i=1.5,extrastereo=m=1.3,bass=g=4:f=110:w=0.3,treble=g=2:f=8000:w=0.5\""
-
 def get_random_img(img_list):
     if img_list:
         if isinstance(img_list, list):
@@ -93,10 +88,9 @@ class Call(PyTgCalls):
         self.active_clients = {} 
 
     async def _safe_change_stream(self, client, chat_id, file_path, video=False, extra_args=""):
-        final_args = f"{extra_args} {DOLBY_EQ}".strip() if extra_args else DOLBY_EQ
-        
+        # 🟢 FIX: Removed Dolby EQ to prevent FFmpeg crash. Using standard High Quality.
         if not video:
-            stream = MediaStream(file_path, audio_parameters=AudioQuality.HIGH, ffmpeg_parameters=final_args)
+            stream = MediaStream(file_path, audio_parameters=AudioQuality.HIGH, ffmpeg_parameters=extra_args)
             await client.play(chat_id, stream)
             return
 
@@ -105,7 +99,7 @@ class Call(PyTgCalls):
                 file_path, 
                 audio_parameters=AudioQuality.HIGH, 
                 video_parameters=VideoQuality.HD_720p, 
-                ffmpeg_parameters=final_args
+                ffmpeg_parameters=extra_args
             )
             await client.play(chat_id, stream)
         except Exception as e:
@@ -114,21 +108,20 @@ class Call(PyTgCalls):
                 file_path, 
                 audio_parameters=AudioQuality.HIGH, 
                 video_parameters=VideoQuality.SD_480p, 
-                ffmpeg_parameters=final_args
+                ffmpeg_parameters=extra_args
             )
             await client.play(chat_id, stream)
 
     async def _safe_join_call(self, assistant_to_join, chat_id, file_path, video=False):
         if not video:
-            stream = MediaStream(file_path, audio_parameters=AudioQuality.HIGH, ffmpeg_parameters=DOLBY_EQ)
+            stream = MediaStream(file_path, audio_parameters=AudioQuality.HIGH)
             return await assistant_to_join.play(chat_id, stream)
 
         try: 
             stream = MediaStream(
                 file_path, 
                 audio_parameters=AudioQuality.HIGH, 
-                video_parameters=VideoQuality.HD_720p,
-                ffmpeg_parameters=DOLBY_EQ
+                video_parameters=VideoQuality.HD_720p
             )
             await assistant_to_join.play(chat_id, stream)
         except Exception as e:
@@ -136,8 +129,7 @@ class Call(PyTgCalls):
             stream = MediaStream(
                 file_path, 
                 audio_parameters=AudioQuality.HIGH, 
-                video_parameters=VideoQuality.SD_480p,
-                ffmpeg_parameters=DOLBY_EQ
+                video_parameters=VideoQuality.SD_480p
             )
             await assistant_to_join.play(chat_id, stream)
 
@@ -177,6 +169,15 @@ class Call(PyTgCalls):
             try: await assistant.leave_group_call(chat_id)
             except: pass
         if chat_id in self.active_clients: del self.active_clients[chat_id]
+
+    async def stop_stream_force(self, chat_id: int):
+        assistants = await self.get_active_clients(chat_id)
+        for assistant in assistants:
+            try: await assistant.leave_group_call(chat_id)
+            except: pass
+        if chat_id in self.active_clients: del self.active_clients[chat_id]
+        try: await _clear_(chat_id)
+        except: pass
 
     async def speedup_stream(self, chat_id: int, file_path, speed, playing):
         assistants = await self.get_active_clients(chat_id)
@@ -363,20 +364,18 @@ class Call(PyTgCalls):
                 db[chat_id][0]["speed"] = 1.0
             video = True if str(streamtype) == "video" else False
             
-            # 🚀 THE FIX: Awaits se pehle safe fetch taaki IndexError na aaye
             try:
                 language = await get_lang(chat_id)
                 _ = get_string(language)
             except:
                 _ = get_string("en")
                 
-            # Await complete hone ke baad verify karo ki queue clear toh nahi ho gayi
             if not db.get(chat_id): return
             
             raw_title = db[chat_id][0].get("title")
             title = str(raw_title).title() if raw_title else "Unknown Title"
             raw_user = db[chat_id][0].get("by")
-            user = str(raw_user) if raw_user else "Unknown User"
+            user = str(raw_user) if raw_user and str(raw_user).strip() else "Unknown User"
             user_id = db[chat_id][0].get("user_id", 0) 
             duration_str = db[chat_id][0].get("dur", "0:00")
             
@@ -406,10 +405,9 @@ class Call(PyTgCalls):
                 except:
                     try: file_path, direct = await YouTube.download(videoid, mystic, videoid=True, video=video)
                     except:
-                        # 🟢 THE FIX: Infinite Loop break karne ka system aur Source-Hopping warning
-                        try: await mystic.edit_text("⚠️ **YouTube Timeout! Source-Hopping (SoundCloud/Saavn) initiating...**", disable_web_page_preview=True)
+                        try: await mystic.edit_text("⚠️ **YouTube Timeout! Skipping...**", disable_web_page_preview=True)
                         except: pass
-                        await asyncio.sleep(2) # Fallback loop ko slow karega
+                        await asyncio.sleep(2)
                         return await self.change_stream(client, chat_id)
                 
                 if not file_path or str(file_path) == "None":
