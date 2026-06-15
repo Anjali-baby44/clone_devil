@@ -2,8 +2,8 @@ import time
 import random
 import asyncio
 from pyrogram import filters
-from pyrogram.enums import ChatType, ChatAction
-from pyrogram.types import InlineKeyboardMarkup, Message
+from pyrogram.enums import ChatType, ChatAction, ButtonStyle
+from pyrogram.types import InlineKeyboardMarkup, Message, InlineKeyboardButton
 # 👇 Nayi library yahan update kar di gayi hai
 from youtubesearchpython.__future__ import VideosSearch
 
@@ -25,8 +25,29 @@ from PritiMusic.utils.inline import help_pannel, private_panel, start_panel
 from config import BANNED_USERS, START_IMG_URL, CMBOT
 from strings import get_string
 
-# Import your styled buttons
-from button import styled_button, ButtonStyle
+# 🔥 PREMIUM EMOJIS LIST 🔥
+PREMIUM_EMOJIS = [
+    "5422831825178206894", 
+    "5368324170673489600",
+    "5206607081334906820",
+    "5206380668048496464"
+]
+
+# 🎨 Dynamic Color Generator (Random Styles)
+def get_style_map():
+    styles = [ButtonStyle.PRIMARY, ButtonStyle.SUCCESS, ButtonStyle.DANGER]
+    random.shuffle(styles)
+    # Row me buttons ke hisaab se random color assign hoga
+    return {1: styles[0], 2: styles[1], 3: styles[2]}
+
+# 🔘 Smart Button Creator
+def create_btn(text, cb=None, url=None, user_id=None, style=ButtonStyle.PRIMARY, no_emoji=False):
+    kwargs = {"text": text, "style": style}
+    if cb: kwargs["callback_data"] = cb
+    if url: kwargs["url"] = url
+    if user_id: kwargs["user_id"] = user_id
+    if not no_emoji: kwargs["icon_custom_emoji_id"] = random.choice(PREMIUM_EMOJIS)
+    return InlineKeyboardButton(**kwargs)
 
 # Telegram Message Effect IDs
 EFFECT_ID = [
@@ -108,11 +129,14 @@ async def start_pm(client, message: Message, _):
                 searched_text = _["start_6"].format(
                     title, duration, views, published, channellink, channel, app.mention
                 )
+                
+                # ✅ Random Colors applied to track info buttons
+                s_map = get_style_map()
                 key = InlineKeyboardMarkup(
                     [
                         [
-                            styled_button(text=_["S_B_8"], url=link, style=ButtonStyle.SUCCESS),
-                            styled_button(text=_["S_B_9"], url=config.SUPPORT_CHAT, style=ButtonStyle.PRIMARY),
+                            create_btn(text=_["S_B_8"], url=link, style=s_map[2]),
+                            create_btn(text=_["S_B_9"], url=config.SUPPORT_CHAT, style=s_map[2]),
                         ],
                     ]
                 )
@@ -142,7 +166,6 @@ async def start_pm(client, message: Message, _):
         # 👉 Uske baad Start Image Send Hogi
         await message.reply_photo(
             random.choice(START_IMG_URL),
-            message_effect_id=random.choice(EFFECT_ID),
             caption=_["start_2"].format(message.from_user.mention, app.mention),
             reply_markup=InlineKeyboardMarkup(out),
         )
