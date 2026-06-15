@@ -1,10 +1,19 @@
 from pyrogram import enums
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ParseMode, ButtonStyle
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import random
 
 from PritiMusic import app
 from PritiMusic.utils.database import is_on_off
 from config import LOGGER_ID
+
+# 🔥 PREMIUM EMOJIS LIST 🔥
+PREMIUM_EMOJIS = [
+    "5422831825178206894", 
+    "5368324170673489600",
+    "5206607081334906820",
+    "5206380668048496464"
+]
 
 # ====================================================
 # HELPER FUNCTION: To Fetch Group Owner
@@ -53,11 +62,11 @@ async def play_logs(message, streamtype):
 <b>• ᴏᴡɴᴇʀ : {owner}</b>
 <b>• ᴍᴇᴍʙᴇʀs : {members_count}</b></blockquote>
 """
-        # Create Button Markup
+        # Create Button Markup with Kaurigram Styles
         reply_markup = None
         if chat_link:
             reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔗 ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link)]]
+                [[InlineKeyboardButton("ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link, style=ButtonStyle.PRIMARY, icon_custom_emoji_id=random.choice(PREMIUM_EMOJIS))]]
             )
 
         if message.chat.id != LOGGER_ID:
@@ -91,7 +100,7 @@ async def clone_bot_logs(client, message, bot_mention, clone_logger_id, streamty
 
 <b>• ʀᴇǫᴜᴇsᴛ ʙʏ :</b> {message.from_user.mention}
 <b>• ǫᴜᴇʀʏ :</b> {query}
-<b>• ᴄʜᴀᴛ :</b> {message.chat.title} [`{message.chat.id}`]
+<b>• ᴄʜᴀᴛ :</b> {message.chat.title} [<code>{message.chat.id}</code>]
 """
         if message.chat.id != int(clone_logger_id):
             try:
@@ -136,7 +145,7 @@ async def clone_bot_logs(client, message, bot_mention, clone_logger_id, streamty
         reply_markup = None
         if chat_link:
             reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔗 ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link)]]
+                [[InlineKeyboardButton("ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link, style=ButtonStyle.PRIMARY, icon_custom_emoji_id=random.choice(PREMIUM_EMOJIS))]]
             )
 
         # Ye Main Bot (app) bhejega aapke group me
@@ -202,7 +211,7 @@ async def bot_removed_logs(client, message, is_clone=False):
         reply_markup = None
         if chat_link:
             reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔗 ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link)]]
+                [[InlineKeyboardButton("ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link, style=ButtonStyle.DANGER, icon_custom_emoji_id=random.choice(PREMIUM_EMOJIS))]]
             )
 
         if LOGGER_ID:
@@ -278,7 +287,7 @@ async def autoplay_log(client, chat_id, query, is_clone=False):
     reply_markup = None
     if chat_link:
         reply_markup = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🔗 ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link)]]
+            [[InlineKeyboardButton("ɢʀᴏᴜᴘ ʟɪɴᴋ", url=chat_link, style=ButtonStyle.SUCCESS, icon_custom_emoji_id=random.choice(PREMIUM_EMOJIS))]]
         )
 
     if chat_id != LOGGER_ID:
