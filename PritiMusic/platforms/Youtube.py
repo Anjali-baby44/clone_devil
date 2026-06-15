@@ -27,7 +27,15 @@ def get_safe_filename(title: str, default_id: str) -> str:
         return default_id
     return re.sub(r'[\\/*?:"<>|]', "", title).strip()
 
-# Helper for Safe Async Execution (Python 3.10+ Fix)
+# 🟢 THE FIX: Perfect YouTube ID Extractor for all link types
+def extract_video_id(link: str) -> str:
+    if "youtu.be/" in link:
+        return link.split("youtu.be/")[1].split("?")[0]
+    elif "v=" in link:
+        return link.split("v=")[1].split("&")[0]
+    return link
+
+# Helper for Safe Async Execution
 async def _async_run(func, *args, **kwargs):
     try:
         loop = asyncio.get_running_loop()
@@ -76,7 +84,7 @@ async def api_download(video_id: str, download_type: str, title: str = None) -> 
 
 async def ytdl_fallback_download(link: str, download_type: str, title: str = None) -> str:
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
+    video_id = extract_video_id(link)
     filename = get_safe_filename(title, video_id)
     ext = "mp4" if download_type == "video" else "mp3"
     file_path = os.path.join(DOWNLOAD_DIR, f"{filename}.{ext}")
@@ -153,7 +161,7 @@ async def jiosaavn_fallback_download(title: str) -> str:
 
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
-            async with session.get(f"{config.JIOSAAVN_API}{clean_title}") as resp:
+            async with session.get(f"{getattr(config, 'JIOSAAVN_API', 'https://saavn.dev/api/search/songs?query=')}{clean_title}") as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if data.get("success") and data.get("data", {}).get("results"):
@@ -205,14 +213,16 @@ async def soundcloud_fallback_download(title: str) -> str:
     return None
 
 async def download_song(link: str, title: str = None) -> str:
-    video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
+    video_id = extract_video_id(link)
     if not video_id or len(video_id) < 3:
         return None
         
     if not title:
         try:
             search = VideosSearch(video_id, limit=1)
-            title = (await search.next())["result"][0]["title"]
+            res = await search.next()
+            if res and res.get("result"):
+                title = res["result"][0]["title"]
         except Exception:
             pass
 
@@ -238,14 +248,16 @@ async def download_song(link: str, title: str = None) -> str:
     return None
 
 async def download_video(link: str, title: str = None) -> str:
-    video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
+    video_id = extract_video_id(link)
     if not video_id or len(video_id) < 3:
         return None
 
     if not title:
         try:
             search = VideosSearch(video_id, limit=1)
-            title = (await search.next())["result"][0]["title"]
+            res = await search.next()
+            if res and res.get("result"):
+                title = res["result"][0]["title"]
         except:
             pass
 
@@ -373,7 +385,6 @@ class YouTubeAPI:
         if videoid: link = self.listbase + link
         if "&" in link: link = link.split("&")[0]
         try:
-            # Wrapped blocking Playlist module inside executor to stop freeze
             plist = await _async_run(Playlist.get, link)
         except Exception:
             return []
