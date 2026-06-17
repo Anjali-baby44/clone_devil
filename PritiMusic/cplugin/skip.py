@@ -1,6 +1,7 @@
 import asyncio
 from pyrogram import filters, Client
 from pyrogram.types import Message
+from pyrogram.enums import ChatMemberStatus
 
 import config
 from PritiMusic import app
@@ -14,13 +15,27 @@ from PritiMusic.utils.inline import close_markup
 from PritiMusic.utils.stream.autoclear import auto_clean
 from config import BANNED_USERS
 
-@app.on_message(
+# 🟢 THE FIX 1: @app.on_message ko @Client.on_message se replace kiya
+# Isse Main Bot aur Clone Bot DONO is command ko sunenge!
+@Client.on_message(
     filters.command(["skip", "cskip", "next", "cnext"], prefixes=["/", "!", "%", ",", ".", "@", "#"])
     & filters.group 
     & ~BANNED_USERS
 )
 @AdminRightsCheck
-async def skip_comm(cli, message: Message, _, chat_id):
+async def skip_comm(cli: Client, message: Message, _, chat_id):
+    
+    # 🟢 THE FIX 2: BULLETPROOF ADMIN CHECK
+    # Agar decorator fail ho jaye, toh yeh manual check kisi bhi aam user ko rok dega.
+    user_id = message.from_user.id
+    if user_id not in config.SUDOERS:
+        try:
+            member = await cli.get_chat_member(chat_id, user_id)
+            if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                return await message.reply_text("❌ **You don't have permission to use this command. Only Admins can skip.**")
+        except Exception:
+            return await message.reply_text("❌ **You don't have permission to use this command. Only Admins can skip.**")
+
     # 1. Queue check
     check = db.get(chat_id)
     if not check:
@@ -56,8 +71,7 @@ async def skip_comm(cli, message: Message, _, chat_id):
                 except:
                     pass
         
-        # 🟢 THE FIX: Sahi PyTgCalls client (assistant) get karo
-        # get_active_clients helper method se hum safe rehte hain
+        # Sahi PyTgCalls client (assistant) get karo
         clients = await Lucky.get_active_clients(chat_id)
         pytgcalls_client = clients[0] if clients else Lucky.one
             
