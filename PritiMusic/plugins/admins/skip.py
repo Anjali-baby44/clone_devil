@@ -1,6 +1,7 @@
 import asyncio
 from pyrogram import filters, Client
 from pyrogram.types import Message
+from pyrogram.enums import ChatMemberStatus # 🟢 Zaroori Import
 
 import config
 from PritiMusic import app
@@ -14,13 +15,25 @@ from PritiMusic.utils.inline import close_markup
 from PritiMusic.utils.stream.autoclear import auto_clean
 from config import BANNED_USERS
 
-@app.on_message(
+# 🟢 THE FIX 1: @app ki jagah @Client use kiya hai!
+@Client.on_message(
     filters.command(["skip", "cskip", "next", "cnext"], prefixes=["/", "!", "%", ",", ".", "@", "#"]) 
     & filters.group 
     & ~BANNED_USERS
 )
 @AdminRightsCheck
-async def skip_comm(cli, message: Message, _, chat_id):
+async def skip_comm(cli: Client, message: Message, _, chat_id):
+    
+    # 🟢 THE FIX 2: BULLETPROOF ADMIN CHECK
+    # Agar kisi wajah se decorator fail ho jaye, toh yeh check kisi bhi non-admin ko rok dega.
+    if message.from_user.id not in config.SUDOERS:
+        try:
+            member = await cli.get_chat_member(chat_id, message.from_user.id)
+            if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                return await message.reply_text("❌ **Sirf Admins he is command ko use kar sakte hain!**")
+        except Exception:
+            return await message.reply_text("❌ **Error: Admin rights verify nahi ho paye.**")
+
     # 1. Queue check
     check = db.get(chat_id)
     if not check:
@@ -56,7 +69,7 @@ async def skip_comm(cli, message: Message, _, chat_id):
                 except:
                     pass
         
-        # 🟢 THE FIX: Safely retrieve client using our Call class method
+        # 🟢 THE FIX 3: Safely retrieve client using our Call class method
         clients = await Lucky.get_active_clients(chat_id)
         pytgcalls_client = clients[0] if clients else Lucky.one
             
