@@ -5,7 +5,7 @@ from pyrogram.enums import ChatMemberStatus
 import config
 from PritiMusic import app
 from PritiMusic.core.call import Lucky
-from PritiMusic.misc import db
+from PritiMusic.misc import db  # ✅ SUDOERS hata diya gaya hai
 from PritiMusic.utils.database import set_loop
 from PritiMusic.utils.decorators import AdminRightsCheck
 from PritiMusic.utils.inline import close_markup
@@ -22,7 +22,14 @@ from config import BANNED_USERS
 @AdminRightsCheck
 async def stop_music(cli: Client, message: Message, _, chat_id):
     
-    # 🟢 GROUP ADMIN CHECK (SUDOERS completely removed to fix crash)
+    # 🛑 THE CLASH FIX (MAIN BOT): Agar command Clone Bot pe aayi hai, toh ignore karo!
+    try:
+        if cli.me.id != app.id:
+            return
+    except Exception:
+        pass
+
+    # 🟢 PURE GROUP ADMIN CHECK (No SUDOERS)
     try:
         member = await cli.get_chat_member(chat_id, message.from_user.id)
         if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
