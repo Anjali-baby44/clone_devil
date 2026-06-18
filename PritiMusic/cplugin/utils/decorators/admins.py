@@ -41,11 +41,19 @@ async def is_clone_admin(bot_id, user_id):
 
 def AdminRightsCheck(mystic):
     async def wrapper(client, message):
+        
+        # 🟢 DYNAMIC BOT IDENTIFIER
+        try:
+            bot = await client.get_me()
+            bot_mention = bot.mention
+        except:
+            bot_mention = "Bᴏᴛ"
+
         # 1. Maintenance Check
         if await is_maintenance() is False:
             if message.from_user.id not in SUDOERS:
                 return await message.reply_text(
-                    text=f"{app.mention} is under maintenance, visit <a href={SUPPORT_CHAT}>Support Chat</a> for reason.",
+                    text=f"{bot_mention} is under maintenance, visit <a href={SUPPORT_CHAT}>Support Chat</a> for reason.",
                     disable_web_page_preview=True,
                 )
 
@@ -80,7 +88,8 @@ def AdminRightsCheck(mystic):
             if chat_id is None:
                 return await message.reply_text(_["setting_7"])
             try:
-                await app.get_chat(chat_id)
+                # 🟢 Changed from app.get_chat to client.get_chat
+                await client.get_chat(chat_id)
             except:
                 return await message.reply_text(_["cplay_4"])
         else:
@@ -105,11 +114,7 @@ def AdminRightsCheck(mystic):
                     if message.from_user.id not in admins:
                         if await is_skipmode(message.chat.id):
                             upvote = await get_upvote_count(chat_id)
-                            text = f"""<b>Admin Rights Needed</b>
-
-Refresh Admin Cache via: /reload
-
-» {upvote} votes needed for performing this action."""
+                            text = f"""<b>Admin Rights Needed</b>\n\nRefresh Admin Cache via: /reload\n\n» {upvote} votes needed for performing this action."""
 
                             command = message.command[0]
                             if command[0] == "c":
@@ -150,10 +155,18 @@ Refresh Admin Cache via: /reload
 
 def AdminActual(mystic):
     async def wrapper(client, message):
+        
+        # 🟢 DYNAMIC BOT IDENTIFIER
+        try:
+            bot = await client.get_me()
+            bot_mention = bot.mention
+        except:
+            bot_mention = "Bᴏᴛ"
+
         if await is_maintenance() is False:
             if message.from_user.id not in SUDOERS:
                 return await message.reply_text(
-                    text=f"{app.mention} is under maintenance, visit <a href={SUPPORT_CHAT}>Support Chat</a> for reason.",
+                    text=f"{bot_mention} is under maintenance, visit <a href={SUPPORT_CHAT}>Support Chat</a> for reason.",
                     disable_web_page_preview=True,
                 )
 
@@ -186,12 +199,13 @@ def AdminActual(mystic):
 
         if message.from_user.id not in SUDOERS and not is_clone_auth:
             try:
+                # 🟢 Changed from app.get_chat_member to client.get_chat_member
                 member = (
-                    await app.get_chat_member(message.chat.id, message.from_user.id)
+                    await client.get_chat_member(message.chat.id, message.from_user.id)
                 ).privileges
             except:
                 return
-            if not member.can_manage_video_chats:
+            if not member or not member.can_manage_video_chats:
                 return await message.reply(_["general_4"])
 
         return await mystic(client, message, _)
@@ -201,10 +215,18 @@ def AdminActual(mystic):
 
 def ActualAdminCB(mystic):
     async def wrapper(client, CallbackQuery):
+        
+        # 🟢 DYNAMIC BOT IDENTIFIER
+        try:
+            bot = await client.get_me()
+            bot_mention = bot.mention
+        except:
+            bot_mention = "Bᴏᴛ"
+
         if await is_maintenance() is False:
             if CallbackQuery.from_user.id not in SUDOERS:
                 return await CallbackQuery.answer(
-                    f"{app.mention} is under maintenance, visit Support Chat for reason.",
+                    f"{bot_mention} is under maintenance, visit Support Chat for reason.",
                     show_alert=True,
                 )
         try:
@@ -219,8 +241,9 @@ def ActualAdminCB(mystic):
         is_non_admin = await is_nonadmin_chat(CallbackQuery.message.chat.id)
         if not is_non_admin:
             try:
+                # 🟢 Changed from app.get_chat_member to client.get_chat_member
                 a = (
-                    await app.get_chat_member(
+                    await client.get_chat_member(
                         CallbackQuery.message.chat.id,
                         CallbackQuery.from_user.id,
                     )
@@ -231,7 +254,7 @@ def ActualAdminCB(mystic):
             # ✅ Check Clone Admin
             is_clone_auth = await is_clone_admin(client.me.id, CallbackQuery.from_user.id)
 
-            if not a.can_manage_video_chats and not is_clone_auth:
+            if (not a or not a.can_manage_video_chats) and not is_clone_auth:
                 if CallbackQuery.from_user.id not in SUDOERS:
                     token = await int_to_alpha(CallbackQuery.from_user.id)
                     _check = await get_authuser_names(CallbackQuery.from_user.id)
