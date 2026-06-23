@@ -16,8 +16,8 @@ DOWNLOAD_DIR = "downloads"
 LOGGER = logging.getLogger(__name__)
 
 # --- API 1: Shruti ---
-API_URL = os.environ.get("API_URL", "https://web.riteshyt.in")
-API_KEY = os.environ.get("API_KEY", "ritesh_free_6361d74f047ed86015df3fa8")
+API_URL = os.environ.get("SHRUTI_API_URL" = "https://api.shrutibots.site")
+API_KEY = os.environ.get("SHRUTI_API_KEY" = "ShrutiBotsC0WH1GowF2HkGoKv4F3y")
 
 # --- API 2: Xbit ---
 YTPROXY_URL = os.getenv("YTPROXY_URL", "https://tgapi.xbitcode.com")
