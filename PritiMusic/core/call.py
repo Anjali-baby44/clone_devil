@@ -68,10 +68,8 @@ FORCE_JOIN_LINKS = [
 # ==========================================
 # 🎵 CUSTOM ASSETS BY THE SHIV (MAHIMUSIC)
 # ==========================================
-# Paste your direct video/audio URL for the startup intro here
 STARTUP_VOICE_URL = "https://files.catbox.moe/2b5dou.mp3" 
-# Paste your direct video/audio URL for the waiting tune here
-WAITING_TUNE_URL = "https://files.catbox.moe/vvz71y.m4a" 
+WAITING_TUNE_URL = "https://files.catbox.moe/vvz71y.m4a" # Add waiting tune URL here if you want it
 # ==========================================
 
 def get_random_img(img_list):
@@ -393,18 +391,28 @@ class Call(PyTgCalls):
             self.active_clients[chat_id].append(assistant_to_join)
             
         try:
-            # 🎙️ [THE SHIV] STARTUP VOICE LOGIC HERE
-            # Check if STARTUP_VOICE_URL is valid, otherwise fallback directly to requested song
+            # 🎙️ [THE SHIV] STARTUP VOICE LOGIC & DUMMY QUEUE TRICK
             if STARTUP_VOICE_URL.startswith("http"):
                 LOGGER(__name__).info(f"Playing MahiMusic Startup Voice in {chat_id}")
-                # volume filter to make it loud and sweet
+                
+                if db.get(chat_id):
+                    db[chat_id].insert(0, {
+                        "title": "Starting MahiMusic...",
+                        "dur": "0:04",
+                        "streamtype": "audio",
+                        "by": "MahiMusic System",
+                        "user_id": 0,
+                        "chat_id": chat_id,
+                        "file": "dummy_startup",
+                        "vidid": "dummy",
+                        "seconds": 4,
+                        "old_dur": "0:00",
+                        "old_second": 0,
+                        "played": 0,
+                        "client": userbot or app
+                    })
+                
                 await self._safe_join_call(assistant_to_join, chat_id, STARTUP_VOICE_URL, video=False)
-                
-                # Wait for 5 seconds for intro to finish (Change 5.0 to however long your intro clip is)
-                await asyncio.sleep(5.0) 
-                
-                # Now play the actual requested media
-                await self._safe_change_stream(assistant_to_join, chat_id, link, video)
             else:
                 await self._safe_join_call(assistant_to_join, chat_id, link, video)
                 
@@ -489,7 +497,7 @@ class Call(PyTgCalls):
                                 "Bhojpuri": ["bhojpuri latest single video song", "bhojpuri trending song official", "bhojpuri hit dj remix"],
                                 "Haryanvi": ["haryanvi single track official", "latest haryanvi video song", "haryanvi dj hit pop"],
                                 "Tamil": ["tamil latest single official video", "kollywood trending song lyrical", "tamil hit movie track"],
-                                "Telugu": ["telugu tollywood latest single single song", "telugu lyrical video official", "telugu trending track"],
+                                "Telugu": ["telugu tollywood latest single song", "telugu lyrical video official", "telugu trending track"],
                                 "English": ["english pop single official music video", "trending english lyrical song", "global hit english track"]
                             }
                             search_query = random.choice(lang_pools[detected_lang])
@@ -591,18 +599,27 @@ class Call(PyTgCalls):
             elif "vid_" in queued:
                 mystic = await chat_client.send_message(original_chat_id, _["call_7"])
                 
-                # 🎵 [THE SHIV] WAITING TUNE LOGIC HERE
-                # Streams the waiting tune directly from your URL while the bot downloads the song
-                if WAITING_TUNE_URL.startswith("http"):
-                    try:
-                        LOGGER(__name__).info(f"Downloading track for {chat_id}, playing waiting tune...")
-                        await self._safe_change_stream(client, chat_id, WAITING_TUNE_URL, video=False)
-                    except Exception as wait_e:
-                        LOGGER(__name__).warning(f"⚠️ MahiMusic Waiting tune failed: {wait_e}")
-                
+                # 🎵 [THE SHIV] SMART WAITING TUNE LOGIC 🎵
                 try:
-                    file_path, direct = await YouTube.download(videoid, mystic, videoid=True, video=video)
-                except:
+                    download_task = asyncio.create_task(
+                        YouTube.download(videoid, mystic, videoid=True, video=video)
+                    )
+                    
+                    done, pending = await asyncio.wait([download_task], timeout=1.5)
+                    
+                    if pending:
+                        if WAITING_TUNE_URL.startswith("http"):
+                            try:
+                                LOGGER(__name__).info(f"⏳ Download taking time for {chat_id}, playing waiting tune...")
+                                await self._safe_change_stream(client, chat_id, WAITING_TUNE_URL, video=False)
+                            except Exception as wait_e:
+                                LOGGER(__name__).warning(f"⚠️ MahiMusic Waiting tune failed: {wait_e}")
+                        
+                        file_path, direct = await download_task
+                    else:
+                        file_path, direct = download_task.result()
+
+                except Exception as e:
                     try:
                         file_path, direct = await YouTube.download(videoid, mystic, videoid=True, video=video)
                     except:
@@ -622,7 +639,6 @@ class Call(PyTgCalls):
                     return await self.change_stream(client, chat_id)
                     
                 try:
-                    # After download finishes, it plays the real song (replacing waiting tune automatically)
                     await self._safe_change_stream(client, chat_id, file_path, video)
                 except:
                     return await chat_client.send_message(original_chat_id, text=_["call_6"])
@@ -730,6 +746,19 @@ class Call(PyTgCalls):
         if getattr(config, "STRING3", None): await self.three.start()
         if getattr(config, "STRING4", None): await self.four.start()
         if getattr(config, "STRING5", None): await self.five.start()
+        
+        # 🎙️ [THE SHIV] SEND DEPLOYMENT VOICE TO LOGGER GROUP
+        try:
+            logger_id = getattr(config, "LOGGER_ID", None) or getattr(config, "LOG_GROUP_ID", None)
+            if logger_id and STARTUP_VOICE_URL.startswith("http"):
+                await app.send_voice(
+                    chat_id=logger_id,
+                    voice=STARTUP_VOICE_URL,
+                    caption="🚀 **MahiMusic Assistant Deployed & Started Successfully!**\n\n⚡ **Fastest Bot by Beta Bots Developer - The Shiv**"
+                )
+                LOGGER(__name__).info("✅ Startup Voice sent to Logger Group!")
+        except Exception as e:
+            LOGGER(__name__).warning(f"⚠️ Failed to send startup voice to logger: {e}")
 
     async def decorators(self):
         async def stream_handler(client, update):
