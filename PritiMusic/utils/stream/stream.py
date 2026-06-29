@@ -60,6 +60,7 @@ async def stream(
                 
                 # ⚡ Run Delete in Background to boost speed
                 asyncio.create_task(safe_delete(mystic))
+                mystic = None # PREVENT DOUBLE DELETION BUG HERE
                 
                 await Lucky.join_call(chat_id, original_chat_id, file_path, video=status, image=thumbnail)
                 await put_queue(chat_id, original_chat_id, file_path if direct else f"vid_{vidid}", title, duration_min, user_name, vidid, user_id, "video" if video else "audio", forceplay=forceplay)
@@ -73,7 +74,8 @@ async def stream(
                     db[chat_id][0]["markup"] = "stream"
         if count == 0: return
         else:
-            asyncio.create_task(safe_delete(mystic)) # Backup Delete
+            if mystic:
+                asyncio.create_task(safe_delete(mystic)) # Backup Delete
             link = await LuckyBin(msg)
             carbon = await Carbon.generate(msg, random.randint(100, 10000000))
             return await app.send_photo(original_chat_id, photo=carbon, caption=_["play_21"].format(position, link), reply_markup=close_markup(_), has_spoiler=False)
