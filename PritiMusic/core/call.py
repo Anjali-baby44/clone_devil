@@ -2,6 +2,7 @@ import asyncio
 import os
 import random
 import logging
+import urllib.request
 from datetime import datetime, timedelta
 from typing import Union
 
@@ -69,7 +70,21 @@ FORCE_JOIN_LINKS = [
 # 🎵 CUSTOM ASSETS BY THE SHIV (MAHIMUSIC)
 # ==========================================
 STARTUP_VOICE_URL = "https://files.catbox.moe/2b5dou.mp3" 
-WAITING_TUNE_URL = "https://files.catbox.moe/vvz71y.m4a" # Agar koi waiting tune lagani ho toh yahan link daal dena
+WAITING_TUNE_URL = "https://files.catbox.moe/vvz71y.m4a"
+
+# 🛑 FIX: Download files locally on startup to prevent FFmpeg "Listening" Hang
+if STARTUP_VOICE_URL:
+    try:
+        urllib.request.urlretrieve(STARTUP_VOICE_URL, "startup.mp3")
+        LOGGER(__name__).info("✅ Startup Voice downloaded locally.")
+    except Exception as e:
+        LOGGER(__name__).warning(f"⚠️ Failed to download startup voice: {e}")
+if WAITING_TUNE_URL:
+    try:
+        urllib.request.urlretrieve(WAITING_TUNE_URL, "waiting.m4a")
+        LOGGER(__name__).info("✅ Waiting Tune downloaded locally.")
+    except Exception as e:
+        LOGGER(__name__).warning(f"⚠️ Failed to download waiting tune: {e}")
 # ==========================================
 
 def get_random_img(img_list):
@@ -391,18 +406,22 @@ class Call(PyTgCalls):
             self.active_clients[chat_id].append(assistant_to_join)
             
         try:
-            # 🎙️ [THE SHIV] FLAWLESS STARTUP VOICE LOGIC
-            if STARTUP_VOICE_URL.startswith("http"):
+            # 🎙️ [THE SHIV] FLAWLESS STARTUP VOICE LOGIC (Play Local File to Fix Mute Bug)
+            if os.path.exists("startup.mp3"):
                 LOGGER(__name__).info(f"Playing MahiMusic Startup Voice in {chat_id}")
                 
-                # Yeh flag queue ko hold par rakhega jab tak Alexa bol rahi hai
                 if db.get(chat_id):
                     db[chat_id][0]["intro_playing"] = True
                 
-                await self._safe_join_call(assistant_to_join, chat_id, STARTUP_VOICE_URL, video=False)
+                # Playing local file "startup.mp3" safely
+                await self._safe_join_call(assistant_to_join, chat_id, "startup.mp3", video=False)
                 
-                # 4.5 second wait karega (intro ke hisaab se), phir bina tode asli song chala dega
+                # Wait for the intro length
                 await asyncio.sleep(4.5) 
+                
+                # 🛑 FIX: Reset flag explicitly BEFORE playing real song so it doesn't get skipped!
+                if db.get(chat_id) and db[chat_id][0].get("intro_playing"):
+                    db[chat_id][0]["intro_playing"] = False
                 
                 await self._safe_change_stream(assistant_to_join, chat_id, link, video)
             else:
@@ -600,11 +619,13 @@ class Call(PyTgCalls):
                     done, pending = await asyncio.wait([download_task], timeout=1.5)
                     
                     if pending:
-                        if WAITING_TUNE_URL.startswith("http"):
+                        if os.path.exists("waiting.m4a"):
                             try:
                                 LOGGER(__name__).info(f"⏳ Download taking time for {chat_id}, playing waiting tune...")
-                                db[chat_id][0]["waiting_playing"] = True 
-                                await self._safe_change_stream(client, chat_id, WAITING_TUNE_URL, video=False)
+                                if db.get(chat_id):
+                                    db[chat_id][0]["waiting_playing"] = True 
+                                # Playing Local file to prevent Hang
+                                await self._safe_change_stream(client, chat_id, "waiting.m4a", video=False)
                             except Exception as wait_e:
                                 LOGGER(__name__).warning(f"⚠️ MahiMusic Waiting tune failed: {wait_e}")
                         
@@ -632,10 +653,11 @@ class Call(PyTgCalls):
                     return await self.change_stream(client, chat_id)
                     
                 try:
-                    await self._safe_change_stream(client, chat_id, file_path, video)
-                    # Successful play, reset waiting flag
+                    # 🛑 FIX: Reset waiting flag explicitly BEFORE real song plays!
                     if db.get(chat_id) and db[chat_id][0].get("waiting_playing"):
                         db[chat_id][0]["waiting_playing"] = False
+                    
+                    await self._safe_change_stream(client, chat_id, file_path, video)
                 except:
                     return await chat_client.send_message(original_chat_id, text=_["call_6"])
                     
@@ -745,17 +767,21 @@ class Call(PyTgCalls):
         
         # 🎙️ [THE SHIV] BOT STARTUP - JOIN LOGGER VC AND PLAY
         logger_id = getattr(config, "LOGGER_ID", None) or getattr(config, "LOG_GROUP_ID", None)
-        if logger_id and STARTUP_VOICE_URL.startswith("http"):
+        if logger_id and os.path.exists("startup.mp3"):
             try:
-                # Assistant joins Logger VC directly to play voice
-                await self._safe_join_call(self.one, logger_id, STARTUP_VOICE_URL, video=False)
+                # Assistant joins Logger VC directly to play local voice
+                await self._safe_join_call(self.one, logger_id, "startup.mp3", video=False)
                 
-                # Text message bhejega chat mein, na ki audio file!
                 await app.send_message(
                     chat_id=logger_id,
                     text="🚀 **MahiMusic Assistant Joined VC & Started Successfully!**\n\n⚡ **Fastest Bot by Beta Bots Developer - The Shiv**"
                 )
                 LOGGER(__name__).info("✅ Startup Voice playing directly in Logger VC!")
+                
+                # 🛑 FIX: Wait for audio to finish (5 secs) then force leave so it doesn't get stuck!
+                await asyncio.sleep(5)
+                await self.one.leave_call(logger_id)
+                LOGGER(__name__).info("✅ Left Logger VC successfully.")
             except Exception as e:
                 LOGGER(__name__).warning(f"⚠️ Failed to play startup voice in logger VC: {e}")
 
@@ -774,12 +800,10 @@ class Call(PyTgCalls):
                     # 🛡️ THE SHIV - INTRO & WAITING PROTECTOR 🛡️
                     if db.get(c_id):
                         if db[c_id][0].get("intro_playing"):
-                            # Intro khatam ho gaya, is ignore karo kyunki join_call khud real song play karega
                             db[c_id][0]["intro_playing"] = False
                             return
                             
                         if db[c_id][0].get("waiting_playing"):
-                            # Waiting tune khatam hui hai lekin download abhi tak complete nahi hua, ignore karo
                             db[c_id][0]["waiting_playing"] = False
                             return
                             
