@@ -69,7 +69,7 @@ FORCE_JOIN_LINKS = [
 # 🎵 CUSTOM ASSETS BY THE SHIV (MAHIMUSIC)
 # ==========================================
 STARTUP_VOICE_URL = "https://files.catbox.moe/2b5dou.mp3" 
-WAITING_TUNE_URL = "https://files.catbox.moe/vvz71y.m4a" # Add waiting tune URL here if you want it
+WAITING_TUNE_URL = "https://files.catbox.moe/vvz71y.m4a" # Agar koi waiting tune lagani ho toh yahan link daal dena
 # ==========================================
 
 def get_random_img(img_list):
@@ -391,28 +391,20 @@ class Call(PyTgCalls):
             self.active_clients[chat_id].append(assistant_to_join)
             
         try:
-            # 🎙️ [THE SHIV] STARTUP VOICE LOGIC & DUMMY QUEUE TRICK
+            # 🎙️ [THE SHIV] FLAWLESS STARTUP VOICE LOGIC
             if STARTUP_VOICE_URL.startswith("http"):
                 LOGGER(__name__).info(f"Playing MahiMusic Startup Voice in {chat_id}")
                 
+                # Yeh flag queue ko hold par rakhega jab tak Alexa bol rahi hai
                 if db.get(chat_id):
-                    db[chat_id].insert(0, {
-                        "title": "Starting MahiMusic...",
-                        "dur": "0:04",
-                        "streamtype": "audio",
-                        "by": "MahiMusic System",
-                        "user_id": 0,
-                        "chat_id": chat_id,
-                        "file": "dummy_startup",
-                        "vidid": "dummy",
-                        "seconds": 4,
-                        "old_dur": "0:00",
-                        "old_second": 0,
-                        "played": 0,
-                        "client": userbot or app
-                    })
+                    db[chat_id][0]["intro_playing"] = True
                 
                 await self._safe_join_call(assistant_to_join, chat_id, STARTUP_VOICE_URL, video=False)
+                
+                # 4.5 second wait karega (intro ke hisaab se), phir bina tode asli song chala dega
+                await asyncio.sleep(4.5) 
+                
+                await self._safe_change_stream(assistant_to_join, chat_id, link, video)
             else:
                 await self._safe_join_call(assistant_to_join, chat_id, link, video)
                 
@@ -611,6 +603,7 @@ class Call(PyTgCalls):
                         if WAITING_TUNE_URL.startswith("http"):
                             try:
                                 LOGGER(__name__).info(f"⏳ Download taking time for {chat_id}, playing waiting tune...")
+                                db[chat_id][0]["waiting_playing"] = True 
                                 await self._safe_change_stream(client, chat_id, WAITING_TUNE_URL, video=False)
                             except Exception as wait_e:
                                 LOGGER(__name__).warning(f"⚠️ MahiMusic Waiting tune failed: {wait_e}")
@@ -640,6 +633,9 @@ class Call(PyTgCalls):
                     
                 try:
                     await self._safe_change_stream(client, chat_id, file_path, video)
+                    # Successful play, reset waiting flag
+                    if db.get(chat_id) and db[chat_id][0].get("waiting_playing"):
+                        db[chat_id][0]["waiting_playing"] = False
                 except:
                     return await chat_client.send_message(original_chat_id, text=_["call_6"])
                     
@@ -747,18 +743,21 @@ class Call(PyTgCalls):
         if getattr(config, "STRING4", None): await self.four.start()
         if getattr(config, "STRING5", None): await self.five.start()
         
-        # 🎙️ [THE SHIV] SEND DEPLOYMENT VOICE TO LOGGER GROUP
-        try:
-            logger_id = getattr(config, "LOGGER_ID", None) or getattr(config, "LOG_GROUP_ID", None)
-            if logger_id and STARTUP_VOICE_URL.startswith("http"):
-                await app.send_voice(
+        # 🎙️ [THE SHIV] BOT STARTUP - JOIN LOGGER VC AND PLAY
+        logger_id = getattr(config, "LOGGER_ID", None) or getattr(config, "LOG_GROUP_ID", None)
+        if logger_id and STARTUP_VOICE_URL.startswith("http"):
+            try:
+                # Assistant joins Logger VC directly to play voice
+                await self._safe_join_call(self.one, logger_id, STARTUP_VOICE_URL, video=False)
+                
+                # Text message bhejega chat mein, na ki audio file!
+                await app.send_message(
                     chat_id=logger_id,
-                    voice=STARTUP_VOICE_URL,
-                    caption="🚀 **MahiMusic Assistant Deployed & Started Successfully!**\n\n⚡ **Fastest Bot by Beta Bots Developer - The Shiv**"
+                    text="🚀 **MahiMusic Assistant Joined VC & Started Successfully!**\n\n⚡ **Fastest Bot by Beta Bots Developer - The Shiv**"
                 )
-                LOGGER(__name__).info("✅ Startup Voice sent to Logger Group!")
-        except Exception as e:
-            LOGGER(__name__).warning(f"⚠️ Failed to send startup voice to logger: {e}")
+                LOGGER(__name__).info("✅ Startup Voice playing directly in Logger VC!")
+            except Exception as e:
+                LOGGER(__name__).warning(f"⚠️ Failed to play startup voice in logger VC: {e}")
 
     async def decorators(self):
         async def stream_handler(client, update):
@@ -771,6 +770,19 @@ class Call(PyTgCalls):
                     if "KICKED" in status or "LEFT" in status or "CLOSED" in status:
                         await self.stop_stream(c_id)
                 elif "StreamEnd" in t_name:
+                    
+                    # 🛡️ THE SHIV - INTRO & WAITING PROTECTOR 🛡️
+                    if db.get(c_id):
+                        if db[c_id][0].get("intro_playing"):
+                            # Intro khatam ho gaya, is ignore karo kyunki join_call khud real song play karega
+                            db[c_id][0]["intro_playing"] = False
+                            return
+                            
+                        if db[c_id][0].get("waiting_playing"):
+                            # Waiting tune khatam hui hai lekin download abhi tak complete nahi hua, ignore karo
+                            db[c_id][0]["waiting_playing"] = False
+                            return
+                            
                     await self.change_stream(client, c_id)
             except Exception as e:
                 LOGGER(__name__).error(f"Stream handler error: {e}")
