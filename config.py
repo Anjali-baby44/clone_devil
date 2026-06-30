@@ -45,6 +45,9 @@ CLONE_LOGGER_2 = int(getenv("CLONE_LOGGER_2", "-1003255930328")) # ✅ Naya Log 
 
 OWNER_ID = int(getenv("OWNER_ID", "0"))
 
+ SUDOERS = [8418584090, 8723235165]
+
+
 # ----------------- SERVER & DEPLOYMENT -----------------
 HEROKU_APP_NAME = getenv("HEROKU_APP_NAME", "")
 HEROKU_API_KEY = getenv("HEROKU_API_KEY", "")
